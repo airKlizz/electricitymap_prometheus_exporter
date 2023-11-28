@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: electricitymap
+  namespace: observability
+  labels:
+    app: electricitymap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: electricitymap
+  template:
+    metadata:
+      labels:
+        app: electricitymap
+    spec:
+      containers:
+        - name: electricitymap
+          image: airklizz/electricitymap_exporter:v3
+          ports:
+          - name: metrics
+            containerPort: 8000
+          env:
+          - name: AUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: electricitymap-exporter-secret
+                key: AUTH_TOKEN
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: electricitymap-service
+  namespace: observability
+  labels:
+    app: electricitymap
+spec:
+  ports:
+  - name: metrics
+    port: 8000
+    targetPort: metrics
+  selector:
+    app: electricitymap
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: electricitymap-service-monitoring
+  namespace: observability
+  labels:
+    release: kube-prometheus-stack
+spec:
+  endpoints:
+    - path: /metrics
+      port: metrics
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 30s
+  namespaceSelector:
+    matchNames:
+      - observability
+  selector:
+    matchLabels:
+      app: electricitymap
